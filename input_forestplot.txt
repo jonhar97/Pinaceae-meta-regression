@@ -1,0 +1,10 @@
+﻿source("../forest-plot.R")
+studies.val<-c(-0.3281, 0.11582,0.5827,-0.3137,0.12741,0.5884,-0.2963,0.14232,0.6011)
+studies.ci = t(matrix(studies.val,3,3))
+authors<-c("Barnes et al. (1962)","Bingham and Squillace (1955)","Fowler and Park (1983)")
+ci.txt = "Effect size (95% CrI)"
+study.txt = "Trial"
+forest.plot.or(authors=authors, studies.ci=studies.ci, ci.txt=ci.txt, study.txt=study.txt,ref.vline.at=0, standard.or.plot=F)
+
+
+forest.plot.or(authors=authors147, studies.ci=SV2, ci.txt=ci.txt, study.txt=study.txt,ref.vline.at=0, standard.or.plot=F,authors.spaces=3,cex=0.3,circles.cex=0.6,OR.plot.spaces=30,or.side.labels=c("Outbreeding depression","Inbreeding depression"),plot.lim=c(-0.4,1))
