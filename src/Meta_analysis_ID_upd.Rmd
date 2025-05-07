@@ -119,7 +119,7 @@ iter = 1000, chains = 8)
 ## Run Stan software, mean Species effects on Fst as covariates
 
 ```{r}
-data.Fst2 <- read.table("/mnt/powervault/jonhall/Desktop/SLU/data_Fst_mean_est_18.txt",sep="\t",header=T)
+data.Fst2 <- read.table("../data/data_Fst_mean_est_18.txt",sep="\t",header=T)
 
 stan_dat3 <- list(N = N, J = J, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, group = group, group_sp = group_sp, Fst = data.Fst2$Estimate.mean, y = y, SE = SE)
 set.seed(1)
@@ -134,9 +134,9 @@ iter = 1000, chains = 8)
 
 ```{r}
 
-saveRDS(fit1, "manual_model_sum_to_zero_alpha.rds")
-saveRDS(fit2, "kmeans_model_sum_to_zero_alpha.rds")
-saveRDS(fit3, "FST_model_alpha.rds")
+saveRDS(fit1, "../results/manual_model_sum_to_zero_alpha.rds")
+saveRDS(fit2, "../results/kmeans_model_sum_to_zero_alpha.rds")
+saveRDS(fit3, "../results/FST_model_alpha.rds")
 
 ```
 
@@ -144,9 +144,9 @@ saveRDS(fit3, "FST_model_alpha.rds")
 
 ```{r}
 
-fit1 <- readRDS(file = "manual_model_sum_to_zero_alpha.rds")
-fit2 <- readRDS(file = "kmeans_model_sum_to_zero_alpha.rds")
-fit3 <- readRDS(file = "FST_model_alpha.rds")
+fit1 <- readRDS(file = "../results/manual_model_sum_to_zero_alpha.rds")
+fit2 <- readRDS(file = "../results/kmeans_model_sum_to_zero_alpha.rds")
+fit3 <- readRDS(file = "../results/FST_model_alpha.rds")
 
 
 ```
@@ -198,10 +198,10 @@ p22 <- mcmc_areas(posterior2,
 p23 <- ggarrange(p21, p22,
                     labels = c("a", "b"),
                     ncol = 2, nrow = 1); p23
-png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans_v95.png")
+png("../results/parameters_fig_sum_to_zero_w_F_kmeans_v95.png")
 p23
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans_v95.pdf")
+pdf("../results/parameters_fig_sum_to_zero_w_F_kmeans_v95.pdf")
 p23
 dev.off()
 # prob = 0.9
@@ -217,19 +217,19 @@ p25 <- mcmc_areas(posterior2,
 p26 <- ggarrange(p24, p25,
                     labels = c("a", "b"),
                     ncol = 2, nrow = 1); p26
-png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans_v90.png")
+png("../results/parameters_fig_sum_to_zero_w_F_kmeans_v90.png")
 p26
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans_v90.pdf")
+pdf("../results/parameters_fig_sum_to_zero_w_F_kmeans_v90.pdf")
 p26
 dev.off()
-#postscript("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans.eps")
+#postscript("../results/parameters_fig_sum_to_zero_w_F_kmeans.eps")
 #p2
 #dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans.png")
+png("../results/parameters_fig_sum_to_zero_w_F_kmeans.png")
 p2
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_kmeans.pdf")
+pdf("../results/parameters_fig_sum_to_zero_w_F_kmeans.pdf")
 p2
 dev.off()
 posterior1 <- as.matrix(fit1)
@@ -250,10 +250,10 @@ figure <- ggarrange(p11, p12,
 #postscript("/mnt/powervault/jonhall/Desktop/SLU/study_effect_model2.eps")
 #figure
 #dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/study_effect_model2.png")
+png("../results/study_effect_model2.png")
 figure
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/study_effect_model2.pdf")
+pdf("../results/study_effect_model2.pdf")
 figure
 dev.off()
 
@@ -285,10 +285,10 @@ p13 <- mcmc_areas(posterior2,
 #postscript("/mnt/powervault/jonhall/Desktop/SLU/species_effect_model2.eps")
 #p13
 #dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/species_effect_model2.png")
+png("../results/species_effect_model2.png")
 p13
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/species_effect_model2.pdf")
+pdf("../results/species_effect_model2.pdf")
 p13
 dev.off()
 
@@ -297,13 +297,11 @@ p1 <- mcmc_areas(posterior1,
                  pars=c("alpha","beta[1]","beta[2]","beta[3]","beta[4]","gamma[1]","gamma[2]","delta[1]","delta[2]","delta[3]","delta[4]","delta[5]","delta[6]","delta[7]","delta[8]","epsilon[1]","epsilon[2]","epsilon[3]","epsilon[4]"), 
                  prob = 0.9)+ 
   ggplot2::scale_y_discrete(labels = expression(alpha,beta[1],beta[2],beta[3],beta[4],gamma[1],gamma[2],delta[11],delta[21],delta[31],delta[41],delta[12],delta[22],delta[32],delta[42],epsilon[1],epsilon[2],epsilon[3],epsilon[4])) ; p1
-#postscript("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.eps")
-#p1
-#dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.png")
+
+png("../results/parameters_fig_sum_to_zero_w_F.png")
 p1
 dev.off()
-pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.pdf")
+pdf("../results/parameters_fig_sum_to_zero_w_F.pdf")
 p1
 dev.off()
 
@@ -361,12 +359,12 @@ print(fit1,pars=c("alpha","beta","gamma","delta","epsilon","sigma_y","sigma_g","
 #extract(fit1,params)
 summary1 <- summary(fit1,pars=c("alpha","beta","gamma","delta","epsilon","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))$summary
 print(summary1)
-write.table(format(summary1,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_mod1.txt",sep="\t",quote=FALSE)
+write.table(format(summary1,digits=2),"../results/posterior_summary_mod1.txt",sep="\t",quote=FALSE)
 
 su5 <- summary1[,-c(2,7,8)]
 su5<-su5[,c(1,3,4,2,5)]
 su5<-su5[,c(1,3,4,2,5)]
-write.table(format(su5,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_model1.txt",sep="\t",quote=FALSE)
+write.table(format(su5,digits=2),"../results/posterior_summary_model1.txt",sep="\t",quote=FALSE)
 print(fit1,pars=c("a"),probs=c(0.2,0.5,0.8))
 print(fit1,pars=c("b"),probs=c(0.2,0.5,0.8))
 ```
@@ -377,12 +375,12 @@ print(fit1,pars=c("b"),probs=c(0.2,0.5,0.8))
 print(fit2,pars=c("mu","alpha","beta","gamma","delta","epsilon","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))
 summary2 <- summary(fit1,pars=c("alpha","beta","gamma","delta","epsilon","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))$summary
 print(summary2)
-write.table(format(summary2,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_mod2.txt",sep="\t",quote=FALSE)
+write.table(format(summary2,digits=2),"../results/posterior_summary_mod2.txt",sep="\t",quote=FALSE)
 
 su5 <- summary2[,-c(2,7,8)]
 su5<-su5[,c(1,3,4,2,5)]
 su5<-su5[,c(1,3,4,2,5)]
-write.table(format(su5,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_model2.txt",sep="\t",quote=FALSE)
+write.table(format(su5,digits=2),"../results/posterior_summary_model2.txt",sep="\t",quote=FALSE)
 print(fit2,pars=c("a"),probs=c(0.2,0.5,0.8))
 print(fit2,pars=c("b"),probs=c(0.2,0.5,0.8))
 ```
@@ -436,8 +434,8 @@ p15 <-  mcmc_areas(posterior2,pars = c("ypred[1,1]","ypred[2,1]","ypred[3,1]","y
 p16 <-  mcmc_areas(posterior2,pars = c("ypred[1,2]","ypred[2,2]","ypred[3,2]","ypred[4,2]"), prob = 0.9,
    prob_outer = 0.99,
    point_est = "mean") + ggplot2::xlim(-0.5, 1.5); p16
-ggsave("predicted_ID.pdf",p15)
-ggsave("predicted_ID.png",p15)
+ggsave("../results/predicted_ID.pdf",p15)
+ggsave("../results/predicted_ID.png",p15)
 p17 <- plot_grid(p15, p16,labels = c("a","b"),nrow=1,ncol=2,label_size = 16,rel_heights = c(1,1)); p17
 png("predicted_y.png")
 p17
@@ -564,13 +562,13 @@ p0 <- ggplot(df2,aes(x=a)) +
   # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
   geom_text(x=0.25, y=360, label = prop2,size=5) +
   theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p0
-pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.pdf")
+pdf("../results/compare_posteriors_gamma.pdf")
 p0
 dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.png")
+png("../results/compare_posteriors_gamma.png")
 p0
 dev.off()
-postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.eps")
+postscript("../results/compare_posteriors_gamma.eps")
 p0
 dev.off()
 p1 <- ggplot(df,aes(x=a)) +
@@ -634,33 +632,33 @@ p6 <- ggplot(df,aes(x=f)) +
  #  geom_text(x=0.3, y=280, label = prop.f,size=5) + # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
   theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p6
 p7 <- plot_grid(p1, p3,labels = c("a","b"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p7
-pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.pdf")
+pdf("../results/compare_posteriors_beta_1.pdf")
 p7
 dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.png")
+png("../results/compare_posteriors_beta_1.png")
 p7
 dev.off()
-postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.eps")
+postscript("../results/compare_posteriors_beta_1.eps")
 p7
 dev.off()
 p8 <- plot_grid(p5, p2,labels = c("c","d"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p8
-pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.pdf")
+pdf("../results/compare_posteriors_beta_2.pdf")
 p8
 dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.png")
+png("../results/compare_posteriors_beta_2.png")
 p8
 dev.off()
-postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.eps")
+postscript("../results/compare_posteriors_beta_2.eps")
 p8
 dev.off()
 p9 <- plot_grid(p4, p6,labels = c("e","f"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p9
-pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.pdf")
+pdf("../results/compare_posteriors_beta_3.pdf")
 p9
 dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.png")
+png("../results/compare_posteriors_beta_3.png")
 p9
 dev.off()
-postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.eps")
+postscript("../results/compare_posteriors_beta_3.eps")
 p9
 dev.off()
 
@@ -668,13 +666,13 @@ figure <- ggarrange(p1, p5, p4, p3, p2, p6,
                     labels = c("a", "c", "e", "b", "d", "f"),
                     ncol = 3, nrow = 2)
 figure
-pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.pdf")
+pdf("../results/compare_posteriors_beta.pdf")
 figure
 dev.off()
-png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.png")
+png("../results/compare_posteriors_beta.png")
 figure
 dev.off()
-postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.eps")
+postscript("../results/compare_posteriors_beta.eps")
 figure
 dev.off()
 

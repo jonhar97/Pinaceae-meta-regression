@@ -16,14 +16,10 @@ options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Read Fst data
 
 ```{r read data}
-#Fst <- read.table("Fst_estimates.txt",header = T,sep="\t")
+#Fst <- read.table("../data/Fst_estimates.txt",header = T,sep="\t")
 #index <- which(Fst$Type.of.marker=="chloroplast" | Fst$Type.of.marker=="mitocondrial")
 #Fst <- Fst[-index,]
 #Fst$Marker.type2 <- 0
@@ -36,7 +32,7 @@ When you click the **Knit** button a document will be generated that includes bo
 #index <- which(Fst$Marker.type=='Allozymes' | Fst$Marker.type=='Isozymes')
 #Fst$Marker.type2[index]<-4
 
-Fst <- read.table("data_Fst_18sp.txt",header = T,sep="\t")
+Fst <- read.table("../data/data_Fst_18sp.txt",header = T,sep="\t")
 y <- Fst$Fst
 n <- as.numeric(length(y))
 x1 <- as.numeric(Fst$Species)
@@ -69,7 +65,7 @@ par(mfrow=c(1,3))
 h1<-hist(Fst$Fst,nclass = 15,xlab = "Fst",main = "untransformed")
 h2 <- hist(log(Fst$Fst),nclass = 15,xlab="log(Fst)",main = "log transformed")
 h3 <- hist(sqrt(Fst$Fst),nclass = 15,xlab="sqrt(Fst)",main = "square-root transformed")
-#pdf("dist_Fst.pdf")
+#pdf("../results/dist_Fst.pdf")
 #h1
 #h2
 #h3
@@ -198,34 +194,34 @@ p23 <- mcmc_areas(posterior3,pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[
 p12
 p22
 p23
-png("marker_type_wo_AFLP_RAPD.png")
+png("../results/marker_type_wo_AFLP_RAPD.png")
 p13
 dev.off()
-pdf("marker_type_wo_AFLP_RAPD.pdf")
+pdf("../results/marker_type_wo_AFLP_RAPD.pdf")
 p13
 dev.off()
-png("marker_type.png")
+png("../results/marker_type.png")
 p1
 dev.off()
-#postscript("/mnt/powervault/jonhall/Desktop/SLU/marker_type.eps")
+#postscript("../results/marker_type.eps")
 #p1
 #dev.off()
-png("marker_type_2.png")
+png("../results/marker_type_2.png")
 p12
 dev.off()
-pdf("marker_type.pdf")
+pdf("../results/marker_type.pdf")
 p1
 dev.off()
-png("Species_Fst.png")
+png("../results/Species_Fst.png")
 p22
 dev.off()
-#postscript("Species_Fst_wo_AFLP_RAPD.eps")
+#postscript("../results/Species_Fst_wo_AFLP_RAPD.eps")
 #p23
 #dev.off()
-png("Species_Fst_wo_AFLP_RAPD.png")
+png("../results/Species_Fst_wo_AFLP_RAPD.png")
 p23
 dev.off()
-pdf("Species_Fst_wo_AFLP_RAPD.pdf")
+pdf("../results/Species_Fst_wo_AFLP_RAPD.pdf")
 p23
 dev.off()
 #draws <- draws[, c("alpha[2]", "alpha[3]")]
