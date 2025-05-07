@@ -22,7 +22,7 @@ options(mc.cores = parallel::detectCores())
 ## Read data
 
 ```{r read ID data}
-data <- read.table('data/data_147.txt')
+data <- read.table('../data/data_147.txt')
 colnames(data)<-c("StudyID","OriginalID","SpeciesID","Fragmentation","InbreedingLevel","Relic","LifeStage","Interaction","ID","SE")
 N <- nrow(data)
 J <- max(data$LifeStage)
@@ -49,7 +49,7 @@ SE <- data$SE
 ## Add partitioning data based on Fst statistics
 
 ```{r}
-data.Fst<-read.table("Fst_partition_data.txt",header=T,sep="\t")
+data.Fst<-read.table("../data/Fst_partition_data.txt",header=T,sep="\t")
 data.Fst$SpeciesID <-as.numeric(data.Fst$Species)
 data.Fst$kmeans<-as.numeric(data.Fst$Partition)
 data.Fst$manual <- c(1,2,1,2,1,1,2,2,1,2,2,1,2,1,1,1,2,1)
@@ -87,7 +87,7 @@ data$manual_int2 <- data$manual_int2 - 4
 data$kmeansID_int2 <- data$kmeansID_int2 - 4
 data$kmeansID_int2[which(data$kmeansID_int2 < 1)] <- 2
 data$manual_int2[which(data$manual_int2 < 1)] <- 2
-write.table(data,"/mnt/powervault/jonhall/Desktop/SLU/data/data_147_upd.txt",quote = FALSE,sep="\t")
+write.table(data,"../data/data_147_upd.txt",quote = FALSE,sep="\t")
 ```
 
 ## run STAN with interaction term between inbreeding level and life stage
@@ -99,7 +99,7 @@ JM <- 8
 print(data$manual_int)
 stan_dat1 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$Fragmentation, incidence_LG = data$Interaction, group = group, group_sp = group_sp, y = y, SE = SE)
 set.seed(1)
-fit1 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_interaction_alpha.stan", data = stan_dat1,
+fit1 <- stan(file = "model_meta_species_factor_interaction_alpha.stan", data = stan_dat1,
 iter = 2000, chains = 8)
 ```
 
@@ -112,7 +112,7 @@ JM <- 8
 print(data$kmeans_int)
 stan_dat2 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$kmeansID, incidence_LG = data$kmeans_int, group = group, group_sp = group_sp, y = y, SE = SE)
 set.seed(1)
-fit2 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_interaction_alpha.stan", data = stan_dat2,
+fit2 <- stan(file = "model_meta_species_factor_interaction_alpha.stan", data = stan_dat2,
 iter = 1000, chains = 8)
 ```
 
@@ -123,7 +123,7 @@ data.Fst2 <- read.table("/mnt/powervault/jonhall/Desktop/SLU/data_Fst_mean_est_1
 
 stan_dat3 <- list(N = N, J = J, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, group = group, group_sp = group_sp, Fst = data.Fst2$Estimate.mean, y = y, SE = SE)
 set.seed(1)
-fit3 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_Fst_with_interaction_alpha.stan", data = stan_dat3,
+fit3 <- stan(file = "model_meta_species_Fst_with_interaction_alpha.stan", data = stan_dat3,
 iter = 1000, chains = 8)
 ```
 
@@ -134,9 +134,9 @@ iter = 1000, chains = 8)
 
 ```{r}
 
-saveRDS(fit1, "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha.rds")
-saveRDS(fit2, "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model_sum_to_zero_alpha.rds")
-saveRDS(fit3, "/mnt/powervault/jonhall/Desktop/SLU/FST_model_alpha.rds")
+saveRDS(fit1, "manual_model_sum_to_zero_alpha.rds")
+saveRDS(fit2, "kmeans_model_sum_to_zero_alpha.rds")
+saveRDS(fit3, "FST_model_alpha.rds")
 
 ```
 
@@ -144,9 +144,9 @@ saveRDS(fit3, "/mnt/powervault/jonhall/Desktop/SLU/FST_model_alpha.rds")
 
 ```{r}
 
-fit1 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha.rds")
-fit2 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model_sum_to_zero_alpha.rds")
-fit3 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/FST_model_alpha.rds")
+fit1 <- readRDS(file = "manual_model_sum_to_zero_alpha.rds")
+fit2 <- readRDS(file = "kmeans_model_sum_to_zero_alpha.rds")
+fit3 <- readRDS(file = "FST_model_alpha.rds")
 
 
 ```
@@ -162,7 +162,7 @@ loo3 <- loo(fit3)
 
 res <- loo_compare(loo1, loo2, loo3)
 print(res)
-write.table(format(res,digits=3),"/mnt/powervault/jonhall/Desktop/SLU/model_selection.txt",sep="\t",quote=FALSE)
+write.table(format(res,digits=3),"../results/model_selection.txt",sep="\t",quote=FALSE)
 plot(res)
 #yrep <- posterior_predict(fit1)
 
