@@ -1,0 +1,45 @@
+Species	Latin.name	Reference	Fst	Marker.type	No.of.markers	No.of.pop.	Type.of.marker	Marker.type2
+Norway spruce	Picea abies	Unger et al. (2012)	0.002	SSR	6	3	nuclear	3
+Norway spruce	Picea abies	Achere et al. (2005)	0.029	AFLP	265	3	dominant	1
+Norway spruce	Picea abies	Chen et al. (2012)	0.05	SNP	445	18	nuclear	2
+Western white pine	Pinus monticola	Kim et al. (2011)	0.201	AFLP	66	15	?	1
+Western white pine	Pinus monticola	Nadeau et al. (2015)	0.081	SNP	158	61	nuclear	2
+Western white pine	Pinus monticola	Steinhoff et al. (1983)	0.148	Allozymes	12	28	nuclear	4
+White spruce	Picea glauca	Namroud et al. (2008)	0.006	SNP	534	6	nuclear	2
+White spruce	Picea glauca	Rajora et al. (2005)	0.022	SSR	6	16	nuclear	3
+Maritime pine	Pinus pinaster	Wahid et al. (2010)	0.12	SSR	7	10	nuclear	3
+Maritime pine	Pinus pinaster	Eveno et al. (2008)	0.15	SSR	8	10	nuclear	3
+Maritime pine	Pinus pinaster	Eveno et al. (2008)	0.137	SNP	302	10	nuclear	2
+Maritime pine	Pinus pinaster	Plomion et al. (2016)	0.085	SNP	3981	2	nuclear	2
+European Larch	Larix decidua	Wagner et al. (2012)	0.082	SSR	13	18	? nuclear	3
+European Larch	Larix decidua	Mosca et al. (2012)	0.043	SNP	267	24	nuclear	2
+European Larch	Larix decidua	Nardin et al. (2015)	0.012	SSR	11	4	nuclear	3
+European Larch	Larix decidua	Belletti et al. (1997)	0.033	Allozymes	20	12	nuclear	4
+Scots pine	Pinus sylvestris	Scalfi et al. (2009)	0.08	SSR	3	3	nuclear	3
+Scots pine	Pinus sylvestris	Pyhäjärvi et al. (2007)	0.065	SNP	153	4	nuclear	2
+Scots pine	Pinus sylvestris	Wachowiak et al. (2013)	0.009	SNP	120	12	nuclear	2
+Scots pine	Pinus sylvestris	González-Díaz et al. (2017)	0.004	SSR	12	2	nuclear	3
+Scots pine	Pinus sylvestris	Kinloch et al. (1986)	0.028	Isozymes	9	14	nuclear	4
+Loblolly pine	Pinus taeda	Eckert et al. (2010)	0.043	SNP	1730	54	nuclear	2
+Loblolly pine	Pinus taeda	Lu et al. (2016)	0.026	SNP	972.72	2	nuclear	2
+Slash pine	Pinus elliottii	Berg  and Hamrick (1997)	0.028	Allozymes	2	16	nuclear	4
+Slash pine	Pinus elliottii	Williams et al. (2007)	0.009	SSR	6	17	nuclear	3
+Radiata pine	Pinus radiata	Kahru et al. (2006)	0.14	SSR	19	5	? nuclear	3
+Radiata pine	Pinus radiata	Moran et al. (1988)	0.162	Allozymes	31	5	nuclear	4
+Douglas fir	Pseudotsuga menziesii	Viard et al. (2001)	0.072	RAPD	48	11	?	1
+Douglas fir	Pseudotsuga menziesii	Viard et al. (2001)	0.018	Allozymes	20	11	nuclear	4
+Nobel fir	Abies procera	Yeh and Hu (2005)	0.112	Allozymes	14	21	nuclear	4
+Ponderosa pine	Pinus ponderosa	Latta & Mitton (1999)	0.062	Allozymes	15	8	nuclear	4
+Ponderosa pine	Pinus ponderosa	Potter et al. (2015)	0.133	SSR	7	104	nuclear	3
+Lodgepole pine	Pinus contorta	Parchman et al. (2012)	0.008	SNP	97616	3	nuclear	2
+Lodgepole pine	Pinus contorta	Parchman et al. (2011)	0.016	SSR	9	22	nuclear	3
+Lodgepole pine	Pinus contorta	Parchman et al. (2011)	0.010	AFLP	235	22	nuclear	1
+Virginia pine	Pinus virginiana	Parker et al. (1997)	0.053	Allozymes	26	19	nuclear	4
+Blue spruce	Picea pungens	Leidig et al. (2006)	0.086	Allozymes	17	4	nuclear	4
+Serbian spruce	Picea omorica	Ballian et al. (2006)	0.261	Isozymes	16	13	nuclear	4
+Black spruce	Picea mariana	Wang and Macdonald (1992)	0.01	Allozymes	28	6	nuclear	4
+Black spruce	Picea mariana	Gamache et al. (2003)	0.014	SNP	9	9	nuclear	2
+Silver fir	Abies alba	Matusova (1995)	0.015	Allozymes	15	5	nuclear	4
+Silver fir	Abies alba	Mosca et al. (2012)	0.037	SNP	249	37	nuclear	2
+Silver fir	Abies alba	Csillery et al. (2019)	0.018	SNP	374	19	nuclear	2
+Silver fir	Abies alba	Roschanski et al. (2016)	0.017	SNP	267	4	nuclear	2

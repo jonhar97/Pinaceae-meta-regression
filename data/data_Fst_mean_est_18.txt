@@ -1,0 +1,19 @@
+name	latin name	nr	distribution	k-means	Fst mean	Estimate mean
+White pine	Pinus monticola	1	2	2	0.182	1.1267435
+Loblolly pine	Pinus taeda	2	1	1	0.043	-0.2371976
+Virginia pine	Pinus virginiana	3	1	1	0.053	0.1415211
+White spruce	Picea glauca	4	1	1	0.006	-1.3437546
+Norway spruce	Picea abies	5	1	1	0.0225	-0.3085638
+Larch	Larix decidua	6	2	1	0.0625	-0.2263625
+Maritime pine	Pinus pinaster	7	2	2	0.176	0.9456337
+Siberian spruce	Picea omorica	8	2	2	0.261	1.8987658
+Radiata pine	Pinus radiata	9	2	2	0.151	1.3176252
+Black Spruce	Picea mariana	10	1	1	0.01	-1.3220181
+Silver fir	Abies alba	11	2	1	0.026	-0.8380354
+Slash pine	Pinus eliotti	12	1	1	0.028	-0.5459675
+Scots pine	Pinus sylvestris	13	1	1	0.0603	-0.3613858
+Douglas Fir	Pseudotsuga menziesii	14	1	1	0.0363	-0.8437390
+Ponderosa pine	Pinus ponderosa	15	2	2	0.571	0.4273297
+Noble fir	Abies procera	16	2	2	0-112	0.9130033
+Contorta pine	Pinus contorta	17	1	1	0.008	-1.3512344
+Blue spruce	picea pungens	18	1	1	0.086	0.6076364
