@@ -1,0 +1,359 @@
+---
+title: "Inbreeding"
+author: "Jon"
+date: "March 13, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("bayesplot")
+library("ggplot2")
+require("rstan")
+require("stats")
+require("cowplot")
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r read data}
+#Fst <- read.table("Fst_estimates.txt",header = T,sep="\t")
+#index <- which(Fst$Type.of.marker=="chloroplast" | Fst$Type.of.marker=="mitocondrial")
+#Fst <- Fst[-index,]
+#Fst$Marker.type2 <- 0
+#index <- which(Fst$Marker.type=='AFLP' | Fst$Marker.type=='RAPD')
+#Fst$Marker.type2[index]<-1
+#index <- which(Fst$Marker.type=='SNP')
+#Fst$Marker.type2[index]<-2
+#index <- which(Fst$Marker.type=='SSR')
+#Fst$Marker.type2[index]<-3
+#index <- which(Fst$Marker.type=='Allozymes' | Fst$Marker.type=='Isozymes')
+#Fst$Marker.type2[index]<-4
+
+Fst <- read.table("data_Fst_18sp.txt",header = T,sep="\t")
+y <- Fst$Fst
+n <- as.numeric(length(y))
+x1 <- as.numeric(Fst$Species)
+x2 <- Fst$Marker.type2
+nlev1 <- max(x1)
+nlev2 <- max(x2)
+Fst2 <- read.table("data_Fst.txt",header = T,sep="\t")
+y2 <- Fst2$Fst
+n2 <- as.numeric(length(y2))
+x12 <- as.numeric(Fst2$Species)
+x22 <- Fst2$Marker.type2
+nlev12 <- max(x12)
+nlev22 <- max(x22)
+index <- which(Fst$Marker.type=='AFLP' | Fst$Marker.type=='RAPD')
+Fst3 <- Fst[-index,]
+y3 <- Fst3$Fst
+n3 <- as.numeric(length(y3))
+x13 <- as.numeric(Fst3$Species)
+x23 <- Fst3$Marker.type2
+nlev13 <- max(x13)
+nlev23 <- max(x23)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r data check, echo=FALSE}
+par(mfrow=c(1,3))
+h1<-hist(Fst$Fst,nclass = 15,xlab = "Fst",main = "untransformed")
+h2 <- hist(log(Fst$Fst),nclass = 15,xlab="log(Fst)",main = "log transformed")
+h3 <- hist(sqrt(Fst$Fst),nclass = 15,xlab="sqrt(Fst)",main = "square-root transformed")
+#pdf("dist_Fst.pdf")
+#h1
+#h2
+#h3
+#dev.off()
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+stan_code <- "
+data {
+int n;
+int nlev1;
+int nlev2;
+int x1[n];
+int x2[n];
+vector<lower=0, upper=1>[n] y;
+}
+parameters {
+vector[nlev1-1] alpha[2];
+vector[nlev2-1] beta[2];
+vector[2] inter; // intercept
+}
+transformed parameters {
+vector[nlev1] alpha_tr[2];
+vector[nlev2] beta_tr[2];
+vector<lower=0, upper=1>[n] mu;
+vector<lower=0>[n] phi;
+vector[n] p;
+vector[n] q;
+for (i in 1:(nlev1-1)){
+  for (j in 1:2){
+    alpha_tr[j,i] = alpha[j,i];
+  }
+}
+for (i in 1:(nlev2-1)){
+  for (j in 1:2){
+    beta_tr[j,i] = beta[j,i];
+  }
+}
+for (i in 1:2){
+alpha_tr[i,nlev1] = -sum(alpha[i,]);
+beta_tr[i,nlev2] = -sum(beta[i,]);
+}
+for (i in 1:n) {
+mu[i] = inv_logit(inter[1] + alpha_tr[1,x1[i]] + beta_tr[1,x2[i]]);
+phi[i] = exp(inter[2] +alpha_tr[2,x1[i]] + beta_tr[2,x2[i]]);
+p[i] = mu[i] * phi[i];
+q[i] = phi[i] - mu[i] * phi[i];
+}
+}
+model {
+y ~ beta(p, q);
+for (i in 1:nlev1){
+  for (j in 1:2){
+    alpha_tr[j,i] ~ normal(0,2);
+  }
+}
+for (i in 1:nlev2){
+  for (j in 1:2){
+    beta_tr[j,i] ~ normal(0,2);
+  }
+}
+for (j in 1:2){
+  inter[j] ~ normal(0,2);
+}
+}"
+it_per_chain <- 1000
+nchain <- 8
+stan_dat <- list(n = n, nlev1 = nlev1, nlev2 = nlev2, x1 = x1, x2 = x2, y = y)
+set.seed(1)
+fit <- stan(model_code = stan_code, data = stan_dat,
+iter = it_per_chain, chains = nchain)
+
+```
+## model with 21 species
+
+```{r}
+stan_dat2 <- list(n = n2, nlev1 = nlev12, nlev2 = nlev22, x1 = x12, x2 = x22, y = y2)
+set.seed(1)
+fit2 <- stan(model_code = stan_code, data = stan_dat2,
+iter = it_per_chain, chains = nchain)
+```
+
+## model analysing data without AFLP/RAPD based Fst estimates
+
+```{r}
+stan_dat3 <- list(n = n3, nlev1 = nlev13, nlev2 = nlev23, x1 = x13, x2 = x23, y = y3)
+set.seed(1)
+fit3 <- stan(model_code = stan_code, data = stan_dat3,
+iter = it_per_chain, chains = nchain)
+```
+
+## Analyze results
+```{r}
+#fit_summary <- summary(fit)
+#print(round(fit_summary$summary,digits = 2))
+#fit_summary2 <- summary(fit2)
+#print(round(fit_summary2$summary,digits = 2))
+mu_tau_summary <- summary(fit, pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]","beta_tr[1,4]"), probs = c(0.05,0.5, 0.95))$summary
+print(mu_tau_summary)
+#mu_tau_summary <- summary(fit2, pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]","beta_tr[1,4]"), probs = c(0.05,0.5, 0.95))$summary
+print(mu_tau_summary)
+mu_tau_summary <- summary(fit3, pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]"), probs = c(0.05,0.5, 0.95))$summary
+print(mu_tau_summary)
+
+posterior <- as.matrix(fit)
+posterior2 <- as.matrix(fit2)
+posterior3 <- as.matrix(fit3)
+p1 <- mcmc_areas(posterior,pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]","beta_tr[1,4]"),prob = 0.9)+ scale_y_discrete(labels=c("beta_tr[1,1]" = "ALFP/RAPD", "beta_tr[1,2]" = "SNP",
+                              "beta_tr[1,3]" = "SSR", "beta_tr[1,4]" = "Isozymes/Allozymes"))
+#p1
+p12 <- mcmc_areas(posterior2,pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]","beta_tr[1,4]"),prob = 0.9)+ scale_y_discrete(labels=c("beta_tr[1,1]" = "ALFP/RAPD", "beta_tr[1,2]" = "SNP",
+                              "beta_tr[1,3]" = "SSR", "beta_tr[1,4]" = "Isozymes/Allozymes"))
+#p12
+p13 <- mcmc_areas(posterior3,pars = c("beta_tr[1,1]","beta_tr[1,2]","beta_tr[1,3]"),prob = 0.9)+ scale_y_discrete(labels=c("beta_tr[1,1]" = "SNP",
+                              "beta_tr[1,2]" = "SSR", "beta_tr[1,3]" = "Isozymes/Allozymes"))
+p13
+p2 <- mcmc_areas(posterior,pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]"),prob = 0.9)+ scale_y_discrete(labels=c("alpha_tr[1,1]" = "Picea mariana",
+                              "alpha_tr[1,2]" = "Picea pungens", "alpha_tr[1,3]" = "Pseudotsuga menziesii","alpha_tr[1,4]" ="Larix decidua","alpha_tr[1,5]" ="Pinus taeda","alpha_tr[1,6]" ="Pinus contorta","alpha_tr[1,7]" ="Pinus pinaster","alpha_tr[1,8]" ="Abies procera","alpha_tr[1,9]" = "Picea abies","alpha_tr[1,10]" ="Pinus ponderosa","alpha_tr[1,11]" = "Pinus radiata","alpha_tr[1,12]" = "Pinus sylvestris","alpha_tr[1,13]" = "Picea omorika","alpha_tr[1,14]" = "Abies alba","alpha_tr[1,15]" = "Pinus elliottii","alpha_tr[1,16]" = "Pinus virginiana","alpha_tr[1,17]" = "Pinus monticola","alpha_tr[1,18]" = "Picea glauca"))
+#
+p22 <- mcmc_areas(posterior2,pars = c("alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]","alpha_tr[1,19]","alpha_tr[1,20]","alpha_tr[1,21]"),prob = 0.9)+ scale_y_discrete(labels=c("alpha_tr[1,2]" = "Picea mariana",
+                              "alpha_tr[1,3]" = "Picea pungens", "alpha_tr[1,4]" = "Pseudotsuga menziesii","alpha_tr[1,5]" ="Larix decidua","alpha_tr[1,7]" ="Pinus taeda","alpha_tr[1,8]" ="Pinus contorta","alpha_tr[1,9]" ="Pinus pinaster","alpha_tr[1,10]" ="Abies procera","alpha_tr[1,11]" = "Picea abies","alpha_tr[1,13]" ="Pinus ponderosa","alpha_tr[1,14]" = "Pinus radiata","alpha_tr[1,15]" = "Pinus sylvestris","alpha_tr[1,16]" = "Picea omorika","alpha_tr[1,17]" = "Abies alba","alpha_tr[1,18]" = "Pinus elliottii","alpha_tr[1,19]" = "Pinus virginiana","alpha_tr[1,20]" = "Pinus monticola","alpha_tr[1,21]" = "Picea glauca"))
+p23 <- mcmc_areas(posterior3,pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]"),prob = 0.9)+ scale_y_discrete(labels=c("alpha_tr[1,1]" = "Picea mariana",
+                              "alpha_tr[1,2]" = "Picea pungens", "alpha_tr[1,3]" = "Pseudotsuga menziesii","alpha_tr[1,4]" ="Larix decidua","alpha_tr[1,5]" ="Pinus taeda","alpha_tr[1,6]" ="Pinus contorta","alpha_tr[1,7]" ="Pinus pinaster","alpha_tr[1,8]" ="Abies procera","alpha_tr[1,9]" = "Picea abies","alpha_tr[1,10]" ="Pinus ponderosa","alpha_tr[1,11]" = "Pinus radiata","alpha_tr[1,12]" = "Pinus sylvestris","alpha_tr[1,13]" = "Picea omorika","alpha_tr[1,14]" = "Abies alba","alpha_tr[1,15]" = "Pinus elliottii","alpha_tr[1,16]" = "Pinus virginiana","alpha_tr[1,17]" = "Pinus monticola","alpha_tr[1,18]" = "Picea glauca"))
+
+p12
+p22
+p23
+png("marker_type_wo_AFLP_RAPD.png")
+p13
+dev.off()
+pdf("marker_type_wo_AFLP_RAPD.pdf")
+p13
+dev.off()
+png("marker_type.png")
+p1
+dev.off()
+#postscript("/mnt/powervault/jonhall/Desktop/SLU/marker_type.eps")
+#p1
+#dev.off()
+png("marker_type_2.png")
+p12
+dev.off()
+pdf("marker_type.pdf")
+p1
+dev.off()
+png("Species_Fst.png")
+p22
+dev.off()
+#postscript("Species_Fst_wo_AFLP_RAPD.eps")
+#p23
+#dev.off()
+png("Species_Fst_wo_AFLP_RAPD.png")
+p23
+dev.off()
+pdf("Species_Fst_wo_AFLP_RAPD.pdf")
+p23
+dev.off()
+#draws <- draws[, c("alpha[2]", "alpha[3]")]
+#colnames(draws) <- c("Species", "Marker")
+#mcmc_hist(draws, facet_args = list(labeller = label_parsed)) +
+#ggtitle("Posterior densities for slope coefficients") +
+#theme_light()
+names <- c("Pinus strobus",
+"Pinus taeda",
+"Pinus virginiana",
+"Picea glauca",
+"Picea abies",
+"Larix decidua",
+"Pinus pinaster",
+"Picea omorika",
+"Pinus radiata",
+"Picea mariana",
+"Abies alba",
+"Pinus elliottii",
+"Pinus sylvestris",
+"Pseudotsuga menziesii",
+"Pinus ponderosa",
+"Abies procera",
+"Pinus contorta",
+"Picea pungens")
+```
+
+`
+## Clustering based on estimated posterior distributions of species effect on Fst
+
+
+
+```{r generate clusters partitioning}
+niter <- 10000 # number 
+list_of_draws <- extract(fit)
+#list_of_draws2 <- extract(fit2)
+#list_of_draws3 <- extract(fit3)
+print(names(list_of_draws))
+head(list_of_draws$alpha_tr)
+cat(sprintf('dim(alpha_tr) = %dx%d\n',dim(list_of_draws$alpha_tr)[1],dim(list_of_draws$alpha_tr)[2]))
+#head(posterior)
+alpha.post<-posterior[, c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]")]
+alpha.post2<-posterior2[, c("alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]","alpha_tr[1,19]","alpha_tr[1,20]","alpha_tr[1,21]")]
+alpha.post3<-posterior3[, c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]")]
+ntot <- it_per_chain*nchain/2
+generate_figure <- function(alpha.post,ntot,nlev1,niter,control){
+  tmp <- rep(0,nlev1)
+  res.tot <- rep(0,nlev1)
+  for (i in 1:niter){ 
+    for (j in 1:nlev1){
+      r1 <- sample(ntot,1)
+   # cat(sprintf('ntot = %d\nr1 = %d\ndim(alpha.post) = %d x %d\n',ntot,r1,dim(alpha.post)[1],dim(alpha.post)[2]))
+      tmp[j]<-alpha.post[r1,j] 
+    }
+    res<-kmeans(tmp,2)
+ # if(res$cluster[16]==2)
+    index <- which(res$cluster==res$cluster[control])
+    res.tot[index] <-res.tot[index]+1 
+  #print(res$cluster)
+  }
+  res.tot<-res.tot/niter
+  res.tot<-as.data.frame(res.tot)
+
+  #res.tot$Species <- c("Picea mariana", "Picea pungens",  "Pseudotsuga menziesii","Larix decidua","Pinus taeda","Pinus contorta","Pinus pinaster","Abies procera", "Picea abies","Pinus ponderosa", "Pinus radiata", "Pinus sylvestris", "Picea omorika","Abies alba","Pinus elliottii","Pinus virginiana", "Pinus monticola", "Picea glauca")
+res.tot$Species <- c("Picea mariana","Picea pungens","Pseudotsuga menziesii","Larix decidua","Pinus taeda","Pinus contorta","Pinus pinaster","Abies procera","Picea abies","Pinus ponderosa","Pinus radiata","Pinus sylvestris","Picea omorika","Abies alba","Pinus elliottii","Pinus virginiana","Pinus monticola","Picea glauca")
+  colnames(res.tot)[1] <-"Proportion"
+  index<-which(res.tot$Proportion<0.5)
+  res.tot$Partition<-"Fragmented"
+  res.tot$Partition[index]<-"Well-connected"
+  return(res.tot)
+}
+res.tot<-generate_figure(alpha.post,ntot,nlev1,niter,13)
+res.tot2<-generate_figure(alpha.post2,ntot,nlev1,niter,13)
+res.tot3<-generate_figure(alpha.post3,ntot,nlev1,niter,13)
+mu_tau_summary <- summary(fit, pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]"), probs = 0.5)$summary
+res.tot$Mean <- mu_tau_summary[,1]
+res.tot$MeanSTD <- scale(mu_tau_summary[,1])
+#mu_tau_summary <- summary(fit2, pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]"), probs = 0.5)$summary
+#res.tot2$Mean <- mu_tau_summary[,1]
+#res.tot2$MeanSTD <- scale(mu_tau_summary[,1])
+mu_tau_summary <- summary(fit3, pars = c("alpha_tr[1,1]","alpha_tr[1,2]","alpha_tr[1,3]","alpha_tr[1,4]","alpha_tr[1,5]","alpha_tr[1,6]","alpha_tr[1,7]","alpha_tr[1,8]","alpha_tr[1,9]","alpha_tr[1,10]","alpha_tr[1,11]","alpha_tr[1,12]","alpha_tr[1,13]","alpha_tr[1,14]","alpha_tr[1,15]","alpha_tr[1,16]","alpha_tr[1,17]","alpha_tr[1,18]"), probs = 0.5)$summary
+res.tot3$Mean <- mu_tau_summary[,1]
+res.tot3$MeanSTD <- scale(mu_tau_summary[,1])
+```
+
+## Plot partitions results
+
+```{r}
+p <- ggplot(data=res.tot,aes(x = reorder(Species,Proportion),y = Proportion,fill=Partition))   +
+  geom_bar(stat="identity", color="black") + coord_flip() + geom_hline(yintercept=0.5,linetype=1,size=1.3)+theme(axis.text=element_text(size=12,color="black"),axis.title=element_text(size=14,color="black"),legend.text=element_text(size=12,color="black"),legend.title=element_text(size=14,color="black"),axis.title.y=element_blank())
+p
+p2 <- ggplot(data=res.tot2,aes(x = reorder(Species,Proportion),y = Proportion,fill=Partition))   +
+  geom_bar(stat="identity", color="black") + coord_flip() + geom_hline(yintercept=0.5,linetype=1,size=1.3)+theme(axis.text=element_text(size=12,color="black"),axis.title=element_text(size=14,color="black"),legend.text=element_text(size=12,color="black"),legend.title=element_text(size=14,color="black"),axis.title.y=element_blank())
+p2
+p3 <- ggplot(data=res.tot3,aes(x = reorder(Species,Proportion),y = Proportion,fill=Partition))   +
+  geom_bar(stat="identity", color="black") + coord_flip() + geom_hline(yintercept=0.5,linetype=1,size=1.3)+theme(axis.text=element_text(size=8,color="black"),axis.title=element_text(size=14,color="black"),legend.text=element_text(size=12,color="black"),legend.title=element_text(size=14,color="black"),axis.title.y=element_blank())
+p3
+postscript("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition.eps")
+p
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition.pdf")
+p
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition.png")
+p
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition2.png")
+p2
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition_wo_AFLP.eps")
+p3
+dev.off()
+
+#p6 <- plot_grid(p1, p, p22,labels = #c("a","c","b"),nrow=3,ncol=1,label_size = 10); p6
+p7 <- plot_grid(p13, p3,labels = c("a","b"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1.9)); p7
+#postscript("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition_wo_AFLP.eps")
+#p7
+#dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition_wo_AFLP.pdf")
+p7
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/barplot_partition_wo_AFLP.png")
+p7
+dev.off()
+```
+## Save data to file
+
+```{r}
+write.table(res.tot3,"Fst_partition_data.txt",quote=F,sep="\t",row.names = F)
+```
+

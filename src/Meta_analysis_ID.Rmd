@@ -1,0 +1,670 @@
+---
+title: "Inbreeding"
+author: "Jon"
+date: "March 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("rstan")
+require('bayesplot')
+library("ggplot2")
+require("lme4")
+require("cowplot")
+#library(ggpubr)
+#theme_set(theme_pubr())
+require("loo")
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r read ID data}
+data <- read.table('data/data_147.txt')
+colnames(data)<-c("StudyID","OriginalID","SpeciesID","Fragmentation","InbreedingLevel","Relic","LifeStage","Interaction","ID","SE")
+N <- nrow(data)
+J <- max(data$LifeStage)
+M <- max(data$Fragmentation)
+JM <- 4
+Nsp <- max(data$SpeciesID)
+L <- max(data$StudyID)
+data$InbreedingLevelCont <- 0.125
+index <- which(data$InbreedingLevel==2)
+data$InbreedingLevelCont[index] <- 0.25
+index <- which(data$InbreedingLevel==3)
+data$InbreedingLevelCont[index] <- 0.5
+index <- which(data$InbreedingLevel==4)
+data$InbreedingLevelCont[index] <- 0.75
+F <- data$InbreedingLevelCont
+incidence_L <- data$LifeStage
+incidence_G <- data$Fragmentation
+incidence_LG <- data$Interaction
+group <- data$StudyID
+group_sp <- data$SpeciesID
+y <- data$ID
+SE <- data$SE
+```
+## Add partitioning data based on Fst statistics
+
+```{r}
+data.Fst<-read.table("Fst_partition_data.txt",header=T,sep="\t")
+data.Fst$SpeciesID <-as.numeric(data.Fst$Species)
+data.Fst$kmeans<-as.numeric(data.Fst$Partition)
+data.Fst$manual <- c(1,2,1,2,1,1,2,2,1,2,2,1,2,1,1,1,2,1)
+data$kmeansID<-1
+#data$Partition<-"Continuous"
+#data$Species<-"Test"
+data$manual<-data$Fragmentation
+data$kmeansID<-data$Fragmentation
+data$kmeansID[which(data$SpeciesID==6)]  <- 1
+data$kmeansID[which(data$SpeciesID==3)]  <- 1
+
+
+```
+
+## Create interaction term area dist x life cycle
+
+```{r}
+interaction <- function(vecA,vecB){
+
+  vecC <- (vecA-1)*4 + vecB
+
+  return(vecC)
+}
+
+data$manual_int <- interaction(data$manual,data$LifeStage)
+data$kmeansID_int <- interaction(data$kmeansID,data$LifeStage)
+index <- which(data$kmeansID_int > 4)
+data$kmeansID_int[index] <- 2 # baseline level
+index <- which(data$manual_int > 4)
+data$manual_int[index] <- 2 # baseline level
+data$manual_int2 <- interaction(data$manual,data$LifeStage)
+data$kmeansID_int2 <- interaction(data$kmeansID,data$LifeStage)
+data$manual_int2 <- data$manual_int2 - 4
+
+data$kmeansID_int2 <- data$kmeansID_int2 - 4
+data$kmeansID_int2[which(data$kmeansID_int2 < 1)] <- 2
+data$manual_int2[which(data$manual_int2 < 1)] <- 2
+write.table(data,"/mnt/powervault/jonhall/Desktop/SLU/data/data_147_upd.txt",quote = FALSE,sep="\t")
+```
+
+## Run Stan software, factor model with manual assignment of species
+```{r}
+
+
+stan_dat1 <- list(N = N, J = J, M = M, JM = 4, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$Fragmentation, incidence_LG = data$manual_int2, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit1 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor.stan", data = stan_dat1,
+iter = 1000, chains = 8) #
+```
+## Run Stan software, factor model with k-means assignment of Species based on Fst analysis
+
+```{r}
+stan_dat2 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$kmeansID, incidence_LG = data$kmeansID_int2, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit2 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor.stan", data = stan_dat2,
+iter = 1000, chains = 8)
+```
+## Run Stan software, factor model with sum-to-zero constraint, and k-means clustering 
+
+```{r}
+data$kmeans_int <- interaction(data$kmeansID,data$LifeStage)
+#data$kmeansID_int <- interaction(data$kmeansID,data$LifeStage)
+JM <- 8
+print(data$kmeans_int)
+stan_dat6 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$kmeansID, incidence_LG = data$kmeans_int, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit6 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_interaction_alpha_zeta.stan", data = stan_dat6,
+iter = 1000, chains = 8)
+```
+
+## Run Stan software, mean Species effects on Fst as covariates
+
+```{r}
+data.Fst2 <- read.table("/mnt/powervault/jonhall/Desktop/SLU/data_Fst_mean_est_18.txt",sep="\t",header=T)
+
+stan_dat3 <- list(N = N, J = J, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, group = group, group_sp = group_sp, Fst = data.Fst2$Estimate.mean, y = y, SE = SE)
+set.seed(1)
+fit3 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_Fst_with_interaction_alpha.stan", data = stan_dat3,
+iter = 1000, chains = 8)
+```
+
+## run Stan with different baseline levels on beta, gamma and delta
+
+```{r}
+interaction2 <- function(vecA,vecB){
+
+  vecC <- (vecA-1)*vecB
+
+  return(vecC)
+}
+data$manual_int <- interaction2(data$manual,data$LifeStage)
+data$kmeansID_int <- interaction2(data$kmeansID,data$LifeStage)
+index <- which(data$kmeansID_int == 0)
+data$kmeansID_int[index] <- 1 # baseline level
+index <- which(data$manual_int == 0)
+data$manual_int[index] <- 1 # baseline level
+JM <- 4
+stan_dat4 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$manual, incidence_LG = data$manual_int, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit4 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_2.stan", data = stan_dat4,
+iter = 1000, chains = 8)
+```
+
+## run Stan with sum to zero hard constraint
+
+```{r}
+data$manual_int <- interaction(data$manual,data$LifeStage)
+#data$kmeansID_int <- interaction(data$kmeansID,data$LifeStage)
+JM <- 8
+print(data$manual_int)
+stan_dat5 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$Fragmentation, incidence_LG = data$Interaction, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit5 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_3.stan", data = stan_dat5,
+iter = 1000, chains = 8)
+```
+
+## run STAN with interaction term between inbreeding level and life stage
+
+```{r}
+data$manual_int <- interaction(data$manual,data$LifeStage)
+#data$kmeansID_int <- interaction(data$kmeansID,data$LifeStage)
+JM <- 8
+print(data$manual_int)
+stan_dat7 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$Fragmentation, incidence_LG = data$Interaction, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit7 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_interaction_alpha.stan", data = stan_dat7,
+iter = 2000, chains = 8)
+```
+## Stan model with all second order interactions
+
+```{r}
+stan_dat8 <- list(N = N, J = J, M = M, JM = JM, Nsp = Nsp, L = L, F = F, incidence_L = incidence_L, incidence_G = data$Fragmentation, incidence_LG = data$Interaction, group = group, group_sp = group_sp, y = y, SE = SE)
+set.seed(1)
+fit8 <- stan(file = "/mnt/powervault/jonhall/Desktop/SLU/model_meta_species_factor_interaction_alpha_zeta.stan", data = stan_dat8,
+iter = 2000, chains = 8)
+```
+
+
+## Save stanfit object
+
+```{r}
+saveRDS(fit1, "/mnt/powervault/jonhall/Desktop/SLU/manual_model.rds")
+saveRDS(fit2, "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model.rds")
+saveRDS(fit3, "/mnt/powervault/jonhall/Desktop/SLU/FST_model.rds")
+saveRDS(fit4, "/mnt/powervault/jonhall/Desktop/SLU/manual_model_new_baselines.rds")
+saveRDS(fit5, "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero.rds")
+saveRDS(fit6, "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model_sum_to_zero.rds")
+saveRDS(fit7, "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha.rds")
+saveRDS(fit8, "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha_zeta.rds")
+```
+
+## Load stanfit objects
+
+```{r}
+fit1 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model.rds") 
+fit2 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model.rds")
+fit3 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/FST_model.rds")
+fit4 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model_new_baselines.rds")
+fit5 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero.rds")
+fit6 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/kmeans_model_sum_to_zero.rds")
+fit7 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha.rds")
+fit8 <- readRDS(file = "/mnt/powervault/jonhall/Desktop/SLU/manual_model_sum_to_zero_alpha_zeta.rds")
+```
+
+## Model selection analysis using loo function
+
+You can also embed plots, for example:
+
+```{r model selection, echo=FALSE}
+loo1 <- loo(fit1)
+#print(loo1)
+loo2 <- loo(fit2)
+#print(loo2)
+loo3 <- loo(fit3)
+#print(loo3)
+loo4 <- loo(fit4)
+loo5 <- loo(fit5)
+loo6 <- loo(fit6)
+loo7 <- loo(fit7)
+loo8 <- loo(fit8)
+res <- loo_compare(loo1, loo2, loo3, loo4, loo5, loo6, loo7, loo8)
+print(res)
+write.table(format(res,digits=3),"/mnt/powervault/jonhall/Desktop/SLU/model_selection.txt",sep="\t",quote=FALSE)
+plot(res)
+#yrep <- posterior_predict(fit1)
+
+# requires bayesplot version >= 1.5.0
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## plots using bayesplot package
+
+```{r}
+posterior1 <- as.matrix(fit1)
+p1 <- mcmc_areas(posterior1,pars=c("alpha","beta[1]","beta[3]","beta[4]","gamma[1]","delta[1]","delta[3]","delta[4]")); p1
+png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig.png")
+p1
+dev.off()
+posterior3 <- as.matrix(fit3)
+p3 <- mcmc_areas(posterior3,pars = c("alpha","beta[1]","beta[3]","beta[4]","gamma","delta[1]","delta[3]","delta[4]")); p3
+posterior4 <- as.matrix(fit4)
+p4 <- mcmc_areas(posterior4,pars=c("alpha","beta[1]","beta[2]","beta[3]","beta[4]","gamma[1]","gamma[2]","delta[1]","delta[2]","delta[3]","delta[4]")); p4
+png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_new_baseline.png")
+p4
+dev.off()
+posterior5 <- as.matrix(fit5)
+p5 <- mcmc_areas(posterior5,pars=c("alpha","beta[1]","beta[2]","beta[3]","beta[4]","gamma[1]","gamma[2]","delta[1]","delta[2]","delta[3]","delta[4]","delta[5]","delta[6]","delta[7]","delta[8]"))+ ggplot2::scale_y_discrete(labels = expression(alpha,beta[1],beta[2],beta[3],beta[4],gamma[1],gamma[2],delta[11],delta[21],delta[31],delta[41],delta[12],delta[22],delta[32],delta[42])) ; p5 #+ scale_y_reverse()
+png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero.png")
+p5
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero.pdf")
+p5
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero.eps")
+p5
+dev.off()
+p6 <- mcmc_areas(posterior5,pars=c("a[1]","a[2]","a[3]","a[4]","a[5]","a[6]","a[7]","a[8]","a[9]","a[10]","a[11]","a[12]","a[13]","a[14]","a[15]","a[16]","a[17]","a[18]","a[19]","a[20]")) + ggplot2::xlim(c(-0.25,0.25)); p6 
+# ,
+p7 <- mcmc_areas(posterior5,pars=c("a[21]","a[22]","a[23]","a[24]","a[25]","a[26]","a[27]","a[28]","a[29]","a[30]","a[31]","a[32]","a[33]","a[34]","a[35]","a[36]","a[37]","a[38]","a[39]","a[40]","a[41]")) + ggplot2::xlim(c(-0.25,0.25)); p7 
+
+figure <- ggarrange(p6, p7,
+                    labels = c("a", "b"),
+                    ncol = 2, nrow = 1); figure
+
+postscript("/mnt/powervault/jonhall/Desktop/SLU/study_effect_5.eps")
+figure
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/study_effect_5.png")
+figure
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/study_effect_5.pdf")
+figure
+dev.off()
+
+
+names <- c("Pinus strobus",
+"Pinus taeda",
+"Pinus virginiana",
+"Picea glauca",
+"Picea abies",
+"Larix decidua",
+"Pinus pinaster",
+"Picea omorika",
+"Pinus radiata",
+"Picea mariana",
+"Abies alba",
+"Pinus elliottii",
+"Pinus sylvestris",
+"Pseudotsuga menziesii",
+"Pinus ponderosa",
+"Abies procera",
+"Pinus contorta",
+"Picea pungens")
+p8 <- mcmc_areas(posterior5,pars=c("b[1]","b[2]","b[3]","b[4]","b[5]","b[6]","b[7]","b[8]","b[9]","b[10]","b[11]","b[12]","b[13]","b[14]","b[15]","b[16]","b[17]","b[18]")) + ggplot2::xlim(c(-0.05,0.05)) + ggplot2::scale_y_discrete(labels=c("b[1]" = names[1],
+                              "b[2]" = names[2], "b[3]" = names[3],"b[4]" =names[4],"b[5]" =names[5],"b[6]" =names[6],"b[7]" =names[7],"b[8]" =names[8],"b[9]" = names[9],"b[10]" =names[10],"b[11]" = names[11],"b[12]" = names[12],"b[13]" = names[13],"b[14]" = names[14],"b[15]" = names[15],"b[16]" = names[16],"b[17]" = names[17],"b[18]" = names[18])); p8 
+postscript("/mnt/powervault/jonhall/Desktop/SLU/species_effect_5.eps")
+p8
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/species_effect_5.png")
+p8
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/species_effect_5.pdf")
+p8
+dev.off()
+
+posterior7 <- as.matrix(fit7)
+p9 <- mcmc_areas(posterior7,pars=c("alpha","beta[1]","beta[2]","beta[3]","beta[4]","gamma[1]","gamma[2]","delta[1]","delta[2]","delta[3]","delta[4]","delta[5]","delta[6]","delta[7]","delta[8]","epsilon[1]","epsilon[2]","epsilon[3]","epsilon[4]"))+ ggplot2::scale_y_discrete(labels = expression(alpha,beta[1],beta[2],beta[3],beta[4],gamma[1],gamma[2],delta[11],delta[21],delta[31],delta[41],delta[12],delta[22],delta[32],delta[42],epsilon[1],epsilon[2],epsilon[3],epsilon[4])) ; p9
+postscript("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.eps")
+p9
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.png")
+p9
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.pdf")
+p9
+dev.off()
+posterior8 <- as.matrix(fit8)
+p10 <- mcmc_areas(posterior8,pars=c("alpha","beta[1]","beta[2]","beta[3]","beta[4]","gamma[1]","gamma[2]","delta[1]","delta[2]","delta[3]","delta[4]","delta[5]","delta[6]","delta[7]","delta[8]","epsilon[1]","epsilon[2]","epsilon[3]","epsilon[4]","zeta[1]","zeta[2]"))+ ggplot2::scale_y_discrete(labels = expression(alpha,beta[1],beta[2],beta[3],beta[4],gamma[1],gamma[2],delta[11],delta[21],delta[31],delta[41],delta[12],delta[22],delta[32],delta[42],epsilon[1],epsilon[2],epsilon[3],epsilon[4],zeta[1],zeta[2])) ; p10
+#postscript("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F.eps")
+#p10
+#dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_zeta.png")
+p10
+dev.off()
+pdf("/mnt/powervault/jonhall/Desktop/SLU/parameters_fig_sum_to_zero_w_F_zeta.pdf")
+p10
+dev.off()
+```
+## check which posterior distributions that are different from 0 (i.e. gives an effect on ID)
+
+```{r}
+zeroinc <- function(post){
+  l1 <- length(which(post >= 0))
+  return(l1/length(post))
+}
+cat(sprintf("Parameter set: beta\n\n"))
+for(i in 1:4){
+  param <- paste("beta[",i,"]",sep="")
+  cat(sprintf("P(X[%d]>0|y) = %f\n",i,zeroinc(posterior5[,param])))
+}
+cat(sprintf("\n\nParameter set: gamma\n\n"))
+for(i in 1:2){
+  param <- paste("gamma[",i,"]",sep="")
+  cat(sprintf("P(X[%d]>0|y) = %f\n",i,zeroinc(posterior5[,param])))
+
+}  
+cat(sprintf("\n\nParameter set: delta\n\n"))
+for(i in 1:8){
+  param <- paste("delta[",i,"]",sep="")
+  cat(sprintf("P(X[%d]>0|y) = %f\n",i,zeroinc(posterior5[,param])))
+}
+cat(sprintf("\n\nParameter set: study-effect (a):\n\n"))
+for(i in 1:41){
+  param <- paste("a[",i,"]",sep="")
+  cat(sprintf("P(X[%d]>0|y) = %f\t",i,zeroinc(posterior5[,param])))
+}
+cat(sprintf("\n"))
+cat(sprintf("\n\nParameter set: study-effect (a):\n\n"))
+for(i in 1:18){
+  param <- paste("b[",i,"]",sep="")
+  cat(sprintf("P(X[%d]>0|y) = %f\t",i,zeroinc(posterior5[,param])))
+}
+cat(sprintf("\n"))
+
+```
+
+
+## compare posterior distributions
+
+```{r}
+# Basic histogram
+df <- data.frame(posterior5[,"beta[1]"]-posterior5[,"beta[2]"])
+df$b <- posterior5[,"beta[1]"]-posterior5[,"beta[3]"]
+df$c <- posterior5[,"beta[1]"]-posterior5[,"beta[4]"]
+df$d <- posterior5[,"beta[2]"]-posterior5[,"beta[3]"]
+df$e <- posterior5[,"beta[2]"]-posterior5[,"beta[4]"]
+df$f <- posterior5[,"beta[3]"]-posterior5[,"beta[4]"]
+colnames(df)[1] <- "a"
+prop.a <- length(which(df$a>0))/length(df$a)
+prop.b <- length(which(df$b>0))/length(df$b)
+prop.c <- length(which(df$c>0))/length(df$c)
+prop.d <- length(which(df$d>0))/length(df$d)
+prop.e <- length(which(df$e>0))/length(df$e)
+prop.f <- length(which(df$f>0))/length(df$f)
+df2 <- data.frame(posterior5[,"gamma[1]"]-posterior5[,"gamma[2]"])
+colnames(df2)[1] <- "a"
+prop2 <- length(which(df2$a>0))/length(df2$a)
+p0 <- ggplot(df2,aes(x=a)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+  geom_text(x=0.25, y=400, label = expression(paste("p(",gamma[1]," - ",gamma[2]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+  # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  geom_text(x=0.25, y=360, label = prop2,size=5) +
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p0
+pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.pdf")
+p0
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.png")
+p0
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_gamma.eps")
+p0
+dev.off()
+p1 <- ggplot(df,aes(x=a)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+ # geom_text(x=0.15, y=400, label = expression(paste("p(",beta[1]," - ",beta[2]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+  # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+#  geom_text(x=0.15, y=350, label = prop.a,size=5) +
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p1
+p2 <- ggplot(df,aes(x=d)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+ # geom_text(x=0.15, y=250, label = expression(paste("p(",beta[2]," - ",beta[3]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+#  geom_text(x=0.15, y=200, label = prop.d,size=5) +
+  # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p2
+
+p3 <- ggplot(df,aes(x=b)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+ # geom_text(x=0.15, y=400, label = expression(paste("p(",beta[1]," - ",beta[3]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+#geom_text(x=0.15, y=350, label = prop.b,size=5) +
+    # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p3
+p4 <- ggplot(df,aes(x=e)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+ # geom_text(x=-0.4, y=350, label = expression(paste("p(",beta[2]," - ",beta[4]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) =
+#  geom_text(x=-0.4, y=300, label = prop.e,size=5) + # ",prop.a,sep="")
+  # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p4
+
+p5 <- ggplot(df,aes(x=c)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+ # geom_text(x=0.6, y=360, label = expression(paste("p(",beta[1]," - ",beta[4]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+ #geom_text(x=0.6, y=300, label = prop.c,size=5) +  # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p5
+p6 <- ggplot(df,aes(x=f)) +
+  geom_histogram(fill="white", color="black")+
+  geom_vline(aes(xintercept=0), color="blue",
+             linetype="dashed",size=1.3)+
+  labs(x="Effect size", y = "Counts")+
+  theme_classic()+
+#  geom_text(x=0.3, y=340, label = expression(paste("p(",beta[3]," - ",beta[4]," > 0 | y) = ",sep="")),size=5,aes(fontface=3)) + # paste("p(x1 - x2 > 0 | y) = ",prop.a,sep="")
+ #  geom_text(x=0.3, y=280, label = prop.f,size=5) + # label=bquote("p(" ~ beta[1]-beta[2]>0 ~ "|y) == " ~ prop.a)
+  theme(axis.text=element_text(size=14,color="black"),axis.title=element_text(size=14,color="black")); p6
+p7 <- plot_grid(p1, p3,labels = c("a","b"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p7
+pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.pdf")
+p7
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.png")
+p7
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_1.eps")
+p7
+dev.off()
+p8 <- plot_grid(p5, p2,labels = c("c","d"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p8
+pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.pdf")
+p8
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.png")
+p8
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_2.eps")
+p8
+dev.off()
+p9 <- plot_grid(p4, p6,labels = c("e","f"),nrow=2,ncol=1,label_size = 16,rel_heights = c(1,1)); p9
+pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.pdf")
+p9
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.png")
+p9
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta_3.eps")
+p9
+dev.off()
+
+figure <- ggarrange(p1, p5, p4, p3, p2, p6,
+                    labels = c("a", "c", "e", "b", "d", "f"),
+                    ncol = 3, nrow = 2)
+figure
+pdf("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.pdf")
+figure
+dev.off()
+png("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.png")
+figure
+dev.off()
+postscript("/mnt/powervault/jonhall/Desktop/SLU/compare_posteriors_beta.eps")
+figure
+dev.off()
+
+```
+
+## comparing interactions
+
+```{r}
+df <- data.frame(posterior5[,"delta[1]"]-posterior5[,"delta[2]"])
+df$b <- posterior5[,"delta[1]"]-posterior5[,"delta[3]"]
+df$c <- posterior5[,"delta[1]"]-posterior5[,"delta[4]"]
+df$d <- posterior5[,"delta[1]"]-posterior5[,"delta[5]"]
+df$e <- posterior5[,"delta[1]"]-posterior5[,"delta[6]"]
+df$f <- posterior5[,"delta[1]"]-posterior5[,"delta[7]"]
+df$g <- posterior5[,"delta[1]"]-posterior5[,"delta[8]"]
+df$h <- posterior5[,"delta[2]"]-posterior5[,"delta[3]"]
+df$i <- posterior5[,"delta[2]"]-posterior5[,"delta[4]"]
+df$j <- posterior5[,"delta[2]"]-posterior5[,"delta[5]"]
+df$k <- posterior5[,"delta[2]"]-posterior5[,"delta[6]"]
+df$l <- posterior5[,"delta[2]"]-posterior5[,"delta[7]"]
+df$m <- posterior5[,"delta[2]"]-posterior5[,"delta[8]"]
+df$n <- posterior5[,"delta[3]"]-posterior5[,"delta[4]"]
+df$o <- posterior5[,"delta[3]"]-posterior5[,"delta[5]"]
+df$p <- posterior5[,"delta[3]"]-posterior5[,"delta[6]"]
+df$q <- posterior5[,"delta[3]"]-posterior5[,"delta[7]"]
+df$r <- posterior5[,"delta[3]"]-posterior5[,"delta[8]"]
+df$s <- posterior5[,"delta[4]"]-posterior5[,"delta[5]"]
+df$t <- posterior5[,"delta[4]"]-posterior5[,"delta[6]"]
+df$u <- posterior5[,"delta[4]"]-posterior5[,"delta[7]"]
+df$v <- posterior5[,"delta[4]"]-posterior5[,"delta[8]"]
+df$w <- posterior5[,"delta[5]"]-posterior5[,"delta[6]"]
+df$x <- posterior5[,"delta[5]"]-posterior5[,"delta[7]"]
+df$y <- posterior5[,"delta[5]"]-posterior5[,"delta[8]"]
+df$z <- posterior5[,"delta[6]"]-posterior5[,"delta[7]"]
+df$a2 <- posterior5[,"delta[6]"]-posterior5[,"delta[8]"]
+df$a3 <- posterior5[,"delta[7]"]-posterior5[,"delta[8]"]
+
+colnames(df)[1] <- "a"
+prop.a <- length(which(df$a>0))/length(df$a)
+prop.b <- length(which(df$b>0))/length(df$b)
+prop.c <- length(which(df$c>0))/length(df$c)
+prop.d <- length(which(df$d>0))/length(df$d)
+prop.e <- length(which(df$e>0))/length(df$e)
+prop.f <- length(which(df$f>0))/length(df$f)
+prop.g <- length(which(df$g>0))/length(df$g)
+prop.h <- length(which(df$h>0))/length(df$h)
+prop.i <- length(which(df$i>0))/length(df$i)
+prop.j <- length(which(df$j>0))/length(df$j)
+prop.k <- length(which(df$k>0))/length(df$k)
+prop.l <- length(which(df$l>0))/length(df$l)
+prop.m <- length(which(df$m>0))/length(df$m)
+prop.n <- length(which(df$n>0))/length(df$n)
+prop.o <- length(which(df$o>0))/length(df$o)
+prop.p <- length(which(df$p>0))/length(df$p)
+prop.q <- length(which(df$q>0))/length(df$q)
+prop.r <- length(which(df$r>0))/length(df$r)
+prop.s <- length(which(df$s>0))/length(df$s)
+prop.t <- length(which(df$t>0))/length(df$t)
+prop.u <- length(which(df$u>0))/length(df$u)
+prop.v <- length(which(df$v>0))/length(df$v)
+prop.w <- length(which(df$w>0))/length(df$w)
+prop.x <- length(which(df$x>0))/length(df$x)
+prop.y <- length(which(df$y>0))/length(df$y)
+prop.z <- length(which(df$z>0))/length(df$z)
+prop.a2 <- length(which(df$a2>0))/length(df$a2)
+prop.a3 <- length(which(df$a3>0))/length(df$a3)
+
+```
+
+
+## Print posterior summaries model 1
+
+```{r}
+
+print(fit1,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))
+#extract(fit1,params)
+summary1 <- summary(fit1,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))$summary
+print(summary1)
+write.table(format(summary1,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_mod1.txt",sep="\t",quote=FALSE)
+```
+
+## print posterior summaries model 2
+
+```{r}
+print(fit2,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))
+```
+
+## print posterior summaries model 3
+
+```{r}
+print(fit3,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp"))
+```
+
+## print posterior summaries for model 5 (sum-to-zero hard constraint)
+
+```{r}
+print(fit5,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp"),probs=c(0.025,0.5,0.975))
+#extract(fit1,params)
+summary5 <- summary(fit5,pars=c("alpha","beta","gamma","delta","sigma_y","sigma_g","sigma_sp","mu","nu"),probs=c(0.025,0.5,0.975))$summary
+print(summary5)
+su5 <- summary5[,-c(2,7,8)]
+su5<-su5[,c(1,3,4,2,5)]
+su5<-su5[,c(1,3,4,2,5)]
+write.table(format(su5,digits=2),"/mnt/powervault/jonhall/Desktop/SLU/posterior_summary_mod5.txt",sep="\t",quote=FALSE)
+print(fit5,pars=c("a"),probs=c(0.2,0.5,0.8))
+print(fit5,pars=c("b"),probs=c(0.2,0.5,0.8))
+```
+
+## reference fixed effect model
+
+```{r}
+data$Frac<-as.factor(data$manual) 
+data$Life <- as.factor(data$LifeStage)
+data$Study <-as.factor(data$StudyID)
+data$Species <- as.factor(data$SpeciesID)
+data <- within(data, Frac <- relevel(Frac, ref = 2))
+data <- within(data, Life <- relevel(Life, ref = 2))
+#DF <- within(DF, b <- relevel(b, ref = 3))
+lm1 <- lmer(y ~ 1 + InbreedingLevelCont + Frac + Life + Frac*Life + (1|Study) + (1|Species),data=data)
+summary(lm1)
+lm1
+```
+
+## Get predictive distributions for F = 0.125, 0.25, 0.5 and 0.75, for life cycle stage 1 for both patchy (gamma index==2) and continuous (gamma index==1) populations
+
+```{r}
+
+#post_1 <- posterior5[,"ypred[1]"]
+parms <- "ypred[1]"
+for(i in 2:4){
+  name <- paste("ypred[",i,"]",sep="")
+  parms <- c(parms,name)
+  #post_1 <- cbind(post_1,posterior5[,name])
+}
+
+p1 <-  mcmc_areas(posterior5,pars = parms, prob = 0.8,
+   prob_outer = 0.99,
+   point_est = "mean") + ggplot2::xlim(-0.5, 1.5); p1
+
+
+```
+
+
+
