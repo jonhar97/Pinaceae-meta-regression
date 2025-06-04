@@ -15,6 +15,7 @@ require("cowplot")
 library(ggpubr)
 #theme_set(theme_pubr())
 require("loo")
+library(tidyr) # Reshape the data frame for ggplot2
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 ```
@@ -102,7 +103,6 @@ set.seed(1)
 fit1 <- stan(file = "model_meta_species_factor_interaction_alpha.stan", data = stan_dat1,
 iter = 2000, chains = 8)
 ```
-
 ## Run Stan software, factor model with sum-to-zero constraint, and k-means clustering 
 
 ```{r}
@@ -160,7 +160,7 @@ loo2 <- loo(fit2)
 loo3 <- loo(fit3)
 
 
-res <- loo_compare(loo1, loo2, loo3)
+res <- loo_compare(loo1, loo2) # , loo3
 print(res)
 write.table(format(res,digits=3),"../results/model_selection.txt",sep="\t",quote=FALSE)
 plot(res)
@@ -394,7 +394,7 @@ print(fit3,pars=c("alpha","beta","gamma","delta","epsilon","sigma_y","sigma_g","
 ## reference fixed effect model
 
 ```{r}
-data$Frac<-as.factor(data$manual) 
+data$Frac<-as.factor(data$kmeansID) 
 data$Life <- as.factor(data$LifeStage)
 data$Study <-as.factor(data$StudyID)
 data$Species <- as.factor(data$SpeciesID)
@@ -675,6 +675,101 @@ dev.off()
 postscript("../results/compare_posteriors_beta.eps")
 figure
 dev.off()
+
+```
+
+## Inbreeding depression predictions
+
+```{r}
+# Extract ypred from the Stan model
+ypred <- rstan::extract(fit1)$ypred
+# Define the F values used in the model
+F_values <- c(0.01, 0.015, 0.02, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.25, 0.5)
+
+# Convert ypred to a data frame
+ypred_df <- as.data.frame(ypred)
+
+
+ypred_long <- pivot_longer(ypred_df, cols = everything(), names_to = "Population", values_to = "ypred")
+
+# Add the F values to the data frame
+ypred_long$F <- rep(F_values, each = nrow(ypred_df))
+
+# Load the ggplot2 package
+library(ggplot2)
+
+# Assuming your data frame is named ypred_long
+ggplot(ypred_long, aes(x = as.factor(F), y = ypred)) +
+  geom_boxplot() +
+  labs(x = "F", y = "ypred", title = "Boxplot of ypred by F") +
+  ylim(-0.25, 1) +
+  theme_minimal()
+
+# Load the necessary package
+library(lme4)
+
+# Assuming your model is named lm1
+# Create a new data frame with the grid of values
+
+new_data <- expand.grid(
+ InbreedingLevelCont = c(0.01, 0.015, 0.02, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.25, 0.5),
+ Frac = factor(1, levels = levels(data$Frac)),
+ Life = factor(3, levels = levels(data$Life))
+)
+
+# Convert Study and Species to factors
+new_data$Study <- factor(NA, levels = levels(data$Study))
+new_data$Species <- factor(NA, levels = levels(data$Species))
+
+
+# Generate predictions
+predictions <- predict(lm1, newdata = new_data, re.form = NA)
+
+# Combine the new data with predictions
+result <- cbind(new_data, Predicted_y = predictions)
+
+# View the result
+print(result)
+
+
+# Assuming your result data frame is named result
+ggplot(result, aes(x = InbreedingLevelCont, y = Predicted_y)) +
+  geom_point() +
+  labs(x = "Inbreeding Level Cont", y = "Predicted y", title = "Scatter Plot of Predicted y by Inbreeding Level Cont") +
+  theme_minimal()
+
+
+# Assuming your result data frame is named result
+# Create the scatter plot with a regression line
+plot <- ggplot(result, aes(x = InbreedingLevelCont, y = Predicted_y)) +
+  geom_point(data = result, aes(x = InbreedingLevelCont, y = Predicted_y), color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  geom_point(data = data, aes(x = InbreedingLevelCont, y = ID), color = "red") +
+  labs(x = "Inbreeding Level", y = "Inbreeding depression", title = "Predicted ID by Inbreeding Level for a growth trait at the vegetative life stage") +
+  theme_minimal() +
+  theme(axis.text = element_text(size = 11)) + 
+    xlim(0, 0.51)
+
+# Print the plot
+print(plot)
+
+# Fit a linear model to get the intercept and slope
+lm_fit <- lm(Predicted_y ~ InbreedingLevelCont, data = result)
+
+# Print the intercept and slope
+intercept <- coef(lm_fit)[1]
+slope <- coef(lm_fit)[2]
+cat("Intercept:", intercept, "\n")
+cat("Slope:", slope, "\n")
+
+# Add the intercept and slope to the plot
+plot <- plot +
+ annotate("text", x = max(result$InbreedingLevelCont), y = min(result$Predicted_y), 
+ label = paste("Intercept:", round(intercept, 2), "\nSlope:", round(slope, 2)), 
+ hjust = 1, vjust = 0, size = 4, color = "black")
+
+# Print the plot
+print(plot)
 
 ```
 

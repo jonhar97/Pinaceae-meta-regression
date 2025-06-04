@@ -86,36 +86,61 @@ model {
   for (j in 1:N)
     y[j] ~ student_t(nu,theta[j], sigma_y*SE[j]); // weighted regression
 }
+// generated quantities {
+// 
+//   vector[N] log_lik;
+//   real Ftmp[4] = {0.125, 0.25, 0.5, 0.75};
+//   matrix[4,2] ypred;
+//   real mean_beta;
+//   real mean_SE;
+//   real mean_a;
+//   real mean_b;
+//   //int j;
+//   real pred;
+//   //real pred1;
+//  // real pred2;
+// 
+// 
+//   mean_beta = mean(beta);
+//   mean_SE = mean(SE);
+//   mean_a = mean(a);
+//   mean_b = mean(b);
+// 
+//   for (n in 1:N)
+//     log_lik[n] = student_t_lpdf(y[n] | nu,theta[n], sigma_y*SE[n]);
+//   for (i in 1:4)  { // life stage
+//     for (j in 1:2){ // population fragmentation
+//     //j = i + 4;
+//       pred = mean_a + mean_b + alpha*Ftmp[3] + beta[i] + mu + gamma[j] + delta[i+4*(j-1)] + epsilon[i]*Ftmp[3];
+//    // pred2 = pred + gamma[2] + delta[5];
+//       ypred[i,j] = student_t_rng(nu,pred, sigma_y*mean_SE);
+//    // ypred[j] = student_t_rng(nu,pred2, sigma_y*mean_SE);
+//     }
+//   }
+// 
+// }
 generated quantities {
-
   vector[N] log_lik;
-  real Ftmp[4] = {0.125, 0.25, 0.5, 0.75};
-  matrix[4,2] ypred;
+  real Ftmp[13] = {0.01, 0.015, 0.02, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.25, 0.5};
+  real ypred[13];
   real mean_beta;
   real mean_SE;
   real mean_a;
   real mean_b;
-  //int j;
   real pred;
-  //real pred1;
- // real pred2;
-
 
   mean_beta = mean(beta);
   mean_SE = mean(SE);
   mean_a = mean(a);
-  mean_b = mean(b);
+  //mean_b = mean(b);
 
   for (n in 1:N)
-    log_lik[n] = student_t_lpdf(y[n] | nu,theta[n], sigma_y*SE[n]);
-  for (i in 1:4)  { // life stage
-    for (j in 1:2){ // population fragmentation
-    //j = i + 4;
-      pred = mean_a + mean_b + alpha*Ftmp[3] + beta[i] + mu + gamma[j] + delta[i+4*(j-1)] + epsilon[i]*Ftmp[3];
-   // pred2 = pred + gamma[2] + delta[5];
-      ypred[i,j] = student_t_rng(nu,pred, sigma_y*mean_SE);
-   // ypred[j] = student_t_rng(nu,pred2, sigma_y*mean_SE);
-    }
-  }
+    log_lik[n] = student_t_lpdf(y[n] | nu, theta[n], sigma_y * SE[n]);
 
+  for (i in 1:13) { // range of F values
+//    for (j in 1:2) { // population fragmentation
+      pred = mean_a + alpha * Ftmp[i] + b[6] + mu + gamma[1] + delta[3] + epsilon[3] * Ftmp[i];
+      ypred[i] = student_t_rng(nu, pred, sigma_y); //  * mean_SE
+  //  }
+  }
 }
